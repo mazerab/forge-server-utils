@@ -53,6 +53,7 @@ interface IItem {
     id: string;
     type: string;
 
+    name?: string; // The name of the item.
     extension?: object;
 }
 
@@ -75,6 +76,10 @@ interface IItemDetails {
     pathInProject?: string; // The relative path of the item starting from project’s root folder.
     extension?: object;
     derivative?: string; // URN of viewable
+}
+
+export enum ExtensionType {
+    BIM360Folder = 'folders:autodesk.bim360:Folder'
 }
 
 interface IVersion {
@@ -507,18 +512,22 @@ export class BIM360Client extends ForgeClient {
      * @param {string} [xUserId] Optional API will act on behalf of specified user Id.
      * @returns {Promise<IItem[]>} List of folder contents.
      */
-    async listContents(projectId: string, folderId: string, xUserId ?: string): Promise<IItem[]> {
+    async listContents(projectId: string, folderId: string, extensionType?: ExtensionType, xUserId ?: string): Promise<IItem[]> {
         const headers: { [key: string]: string } = {};
         if (!!xUserId) {
             headers['x-user-id'] = xUserId;
         }
-        let response = await this.get(`data/v1/projects/${encodeURIComponent(projectId)}/folders/${encodeURIComponent(folderId)}/contents`, headers, ReadTokenScopes);
+        let url = `data/v1/projects/${encodeURIComponent(projectId)}/folders/${encodeURIComponent(folderId)}/contents`;
+        if (!!extensionType) {
+            url += `?filter[extension.type]=${extensionType}`;
+        }
+        let response = await this.get(url, headers, ReadTokenScopes);
         let results = response.data;
         while (response.links && response.links.next) {
             response = await this.get(response.links.next.href, headers, ReadTokenScopes);
             results = results.concat(response.data);
         }
-        return results.map((result: any) => Object.assign(result.attributes, { id: result.id, type: result.type }));
+        return results.map((result: any) => Object.assign(result.attributes, { id: result.id, name: result.name, type: result.type }));
     }
 
     // #endregion

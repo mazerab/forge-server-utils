@@ -1,9 +1,18 @@
+import { BIM360Client, ResourceType, ExtensionType } from './bim360'; 
 import { ForgeClient, IAuthOptions, Region } from './common';
 import { AxiosRequestConfig } from 'axios';
+import fs from 'fs';
+import { basename } from 'path';
+import { promisify } from 'util';
 
 const RootPath = 'oss/v2';
 const ReadTokenScopes = ['bucket:read', 'data:read'];
 const WriteTokenScopes = ['bucket:create', 'bucket:delete', 'data:write'];
+
+export interface IAppKeys {
+    client_id: string;
+    client_secret: string;
+}
 
 export interface IBucket {
     bucketKey: string;
@@ -45,6 +54,17 @@ export interface ISignedUrl {
     signedUrl: string;
     expiration: number;
     singleUse: boolean;
+}
+
+export interface IUploadParams {
+    object: {
+        bucket: string;
+        filePath: string;
+    },
+    request: {
+        contentType: string;
+        xUserId: string;
+    }
 }
 
 /**
@@ -245,6 +265,58 @@ export class DataManagementClient extends ForgeClient {
             'Session-Id': sessionId
         }
         return this.put(`buckets/${bucketKey}/objects/${encodeURIComponent(objectName)}/resumable`, data, headers, WriteTokenScopes);
+    }
+
+    /**
+     * Upload object to BIM360 Docs storage
+     * ({@link https://forge.autodesk.com/en/docs/bim360/v1/tutorials/document-management/upload-document}).
+     * @async
+     * @param {IAppKeys} appKeys Forge app credentials.
+     * @param {string} hubName Name of the hub.
+     * @param {string} projectName Name of the project.
+     * @param {string} folderName Name of the folder.
+     * @param {IUploadParams} uploadParams Upload parameters.
+     * @throws Error when the request fails, for example, due to insufficient rights, or incorrect scopes.
+     */
+    async uploadObjectToBIM360Docs(hubName: string, projectName: string, folderName: string, uploadParams: IUploadParams, appKeys: IAppKeys) {
+        try {
+            const bim = new BIM360Client(appKeys);
+            const hubs = await bim.listHubs(uploadParams.request.xUserId);
+            const accounts = hubs.filter(function (hub) {
+                return hub.name === hubName;
+            });
+            const accountId = accounts[0].id;
+            const projects = await bim.listProjects(accountId, uploadParams.request.xUserId);
+            const hubProjects = projects.filter(function(hubProject) {
+                return hubProject.name === projectName;
+            });
+            const projectId = hubProjects[0].id;
+            const topFolders = await bim.listTopFolders(accountId, projectId, uploadParams.request.xUserId);
+            const projectFolders = topFolders.filter(function(projectFolder) {
+                return projectFolder.name === folderName;
+            });
+            const topFolderId = projectFolders[0].id;
+            let folderId = (projectFolders.length === 1) ? topFolderId: undefined;
+            if (folderId === undefined) {
+                const contents = await bim.listContents(projectId, topFolderId, ExtensionType.BIM360Folder, uploadParams.request.xUserId);
+                const entries = contents.filter(function(entry) {
+                    return entry.name === folderName && entry.type === 'folders';
+                });
+                folderId = entries[0].id;
+            }
+            if (!!folderId) { // at this point folderId should be defined
+                const fileName = basename(uploadParams.object.filePath);
+                const storage = await bim.createStorageLocation(projectId, fileName, ResourceType.Folders, folderId, uploadParams.request.xUserId);
+                const readFile = promisify(fs.readFile);
+                const buffer = await readFile(uploadParams.object.filePath);
+                const storageName = basename(storage.id);
+                await this.uploadObject(uploadParams.object.bucket, storageName, uploadParams.request.contentType, buffer);
+                const version = await bim.createVersion(projectId, fileName, folderId, storage.id, uploadParams.request.xUserId);
+                console.info(`version: ${JSON.stringify(version)}`);
+            }
+        } catch (err) {
+            console.error(err);
+        }
     }
 
     /**

@@ -28,7 +28,7 @@
   },
   "homepage": "https://github.com/petrbroz/forge-server-utils#readme",
   "devDependencies": {
-    "@types/node": "^12.7.0",
+    "@types/node": "12.12.50",
     "mocha": "^7.1.2",
     "typedoc": "^0.16.9",
     "typescript": "^3.7.5",

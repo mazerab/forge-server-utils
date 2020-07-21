@@ -370,7 +370,7 @@ export class BIM360Client extends ForgeClient {
             response = await this.get(response.links.next.href, headers, ReadTokenScopes);
             results = results.concat(response.data);
         }
-        return results.map((result: any) => Object.assign(result.attributes, { id: result.id, name: result.name }));
+        return results.map((result: any) => Object.assign(result.attributes, { id: result.id, name: result.attributes.name }));
     }
 
     /**
@@ -415,7 +415,7 @@ export class BIM360Client extends ForgeClient {
             response = await this.get(response.links.next.href, headers, ReadTokenScopes);
             results = results.concat(response.data);
         }
-        return results.map((result: any) => Object.assign(result.attributes, { id: result.id, name: result.name }));
+        return results.map((result: any) => Object.assign(result.attributes, { id: result.id, name: result.attributes.name }));
     }
 
     /**
@@ -457,7 +457,7 @@ export class BIM360Client extends ForgeClient {
             response = await this.get(response.links.next.href, headers, ReadTokenScopes);
             results = results.concat(response.data);
         }
-        return results.map((result: any) => Object.assign(result.attributes, { id: result.id, name: result.name }));
+        return results.map((result: any) => Object.assign(result.attributes, { id: result.id, name: result.attributes.name }));
     }
 
     /**
@@ -527,7 +527,7 @@ export class BIM360Client extends ForgeClient {
             response = await this.get(response.links.next.href, headers, ReadTokenScopes);
             results = results.concat(response.data);
         }
-        return results.map((result: any) => Object.assign(result.attributes, { id: result.id, name: result.name, type: result.type }));
+        return results.map((result: any) => Object.assign(result.attributes, { id: result.id, name: result.attributes.name, type: result.type }));
     }
 
     // #endregion
